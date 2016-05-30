@@ -26,7 +26,7 @@ includelib drd.lib
 	vdown DWORD 300
 	gravity DWORD 1
 	dinox DWORD 50
-	jumpv DWORD 100
+	jumpv DWORD 400
 	;state
 	dinoy DWORD 8000
 	dinov DWORD 200
@@ -54,10 +54,13 @@ jump ENDP
 gravityfunc PROC
 	push eax
 	push ebx
-	
- 	mov eax, dinoy
-	mov ebx, dinov
-	shr ebx, 5
+	push edx
+
+ 	mov eax, dinov
+	mov ebx, 20
+	cdq
+	idiv ebx 
+	mov ebx, dinoy
 	add eax, ebx
 	mov dinoy, eax
 	
@@ -66,8 +69,10 @@ gravityfunc PROC
 	add eax, ebx
 	mov dinov, eax
 	
+	pop edx
 	pop ebx
 	pop eax
+
 	ret
 gravityfunc ENDP
 
