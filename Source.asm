@@ -22,27 +22,43 @@ includelib drd.lib
 	frame2img Img <0,0,0,0>
 
 	space BYTE 20h
-	floory DWORD 5000
+	floory DWORD 8000
 	vdown DWORD 300
 	gravity DWORD 1
 	dinox DWORD 50
+	jumpv DWORD 100
 	;state
-	dinoy DWORD 10000
+	dinoy DWORD 8000
 	dinov DWORD 200
-	MAXY DWORD 100
 
 
 .code
 drd_imageLoadFile PROTO filename:DWORD, pimg:DWORD
-update PROC
-    push ebx
+jump PROC
 	push eax
-	
+	invoke GetAsyncKeyState, space
+	test eax, 1
+	jz isnotpressed
 
-	mov eax, dinoy
+	mov eax, dinov
+	sub eax, jumpv
+	mov dinov, eax
+
+	isnotpressed:
+	pop eax
+	ret
+jump ENDP
+
+
+
+gravityfunc PROC
+	push eax
+	push ebx
+	
+ 	mov eax, dinoy
 	mov ebx, dinov
 	shr ebx, 5
-	sub eax, ebx
+	add eax, ebx
 	mov dinoy, eax
 	
 	mov eax, dinov
@@ -50,31 +66,37 @@ update PROC
 	add eax, ebx
 	mov dinov, eax
 	
+	pop ebx
+	pop eax
+	ret
+gravityfunc ENDP
 
-	mov eax, dinoy
-	cmp eax, MAXY
-
-	jge nomax
-	
-	mov ebx , dinov
-	add ebx, gravity
-	mov eax, dinoy
-	add eax, ebx
-	mov dinoy, eax
-	cmp eax, floory
-	jle nofloor
-	
-	
+floorcheck PROC
+    push eax 
+	mov eax, floory
+	cmp eax, dinoy
+	jge nofloor
 	mov dinov, 0
-nofloor:
-nomax:
+	mov dinoy, eax
+	nofloor:
+
+	pop eax
+	ret 
+floorcheck ENDP
+
+update PROC
+    push ebx
+	push eax
+
+	call gravityfunc
+	call floorcheck
+	call jump
 	
 	pop eax
 	pop ebx
 	ret
 
 update ENDP 
-	kkkk
 
 	
 
@@ -107,7 +129,7 @@ main PROC
 
 	
 	main_loop:
-    
+     
 	call draw
 
 	call update
