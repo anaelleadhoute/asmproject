@@ -2,11 +2,7 @@
 .model flat, stdcall
 option casemap :none
 
-include \masm32\include\windows.inc
-include \masm32\include\kernel32.inc
 include \masm32\include\user32.inc
-include \masm32\include\msvcrt.inc
-includelib msvcrt.lib
 include drd.inc
 includelib drd.lib
 
@@ -39,21 +35,25 @@ includelib drd.lib
 	cloudfile BYTE "dinoproject/realcloud.bmp", 0
 	cloudimg Img<0,0,0,0>
 
+	starbucksfile BYTE "dinoproject/starbucks.bmp", 0
+	starbucksimg Img<0,0,0,0>
+
+	lcg_x DWORD 0
 
 	space BYTE 20h
-	floory DWORD 8000
+	floory DWORD 9500
 	vdown DWORD 300
 	gravity DWORD 1
-	dinox DWORD 50
-	jumpv DWORD 500
+	dinox DWORD 300
+	jumpv DWORD 400
 	;state
 	dinoy DWORD 8000
 	dinov DWORD 200
 
-	cactusY DWORD 600
-	cactusX0 dword 11200
+	cactusY DWORD 650
+	cactusX0 dword 16000
 	cactusX DWORD 10000
-	limitX Dword 900
+	limitXcactus Dword 4000
 
 	white DWORD 16777215
 
@@ -61,7 +61,7 @@ includelib drd.lib
 	tziporX DWORD 100
 	tziporV DWORD 1
 	tziporX0 DWORD 50
-	limitXtzipor DWORD 12000
+	limitXtzipor DWORD 16000
 
 	switch BYTE 0
 	cactusV DWORD 8
@@ -69,31 +69,28 @@ includelib drd.lib
 	frameflag DWORD 0
 	cloudflag DWORD 0
 
-	rand DWORD 0
-	TinyRNG_x   dd  0
-	TinyRNG_a   dd  100711433
+	collisionflag DWORD 0
+
 
 
 
 .code
 drd_imageLoadFile PROTO filename:DWORD, pimg:DWORD
 
+lcg_rand PROC
+    push edx
+	mov eax, lcg_x
+	mov edx, 214013 
+	mul edx
+	add eax, 2531011 
+	mov lcg_x, eax
+	pop edx
+	ret
+lcg_rand ENDP 
 
-Tiny_Random proc uses edx   iRange
-
-   adc eax, edx
-   adc eax, TinyRNG_x
-   mul TinyRNG_a
-   adc eax, edx
-   mov TinyRNG_x, eax
-   mul iRange
-   mov eax, edx
-   mov rand,eax
-   inc rand
-   ret
-
-Tiny_Random endp
-
+	 ;11111111
+	        ;1
+	;100000000		
 
  birds PROC
 	push eax
@@ -118,7 +115,7 @@ collisioncheck PROC
 	sub eax, dinox
 	cmp eax, frame1img.iwidth
 	jge nocollision
-	neg eax ;;why
+	neg eax 
 	cmp eax, cactusimg.iwidth
 	jge nocollision
 
@@ -131,7 +128,7 @@ collisioncheck PROC
 	neg eax
 	cmp eax, cactusimg.iheight
 	jge nocollision
-	mov eax, 1
+	mov collisionflag, 1
 	ret
 
 	nocollision:
@@ -144,9 +141,9 @@ cactus PROC
 	push ebx
 	mov ebx, cactusV
 	mov eax, cactusX
-	cmp eax, limitX
 	sub cactusX, ebx 
-	jne nolimit
+	cmp eax, limitXcactus
+	jg nolimit
 	mov eax, cactusX0
 	mov cactusX, eax
 	nolimit:
@@ -181,11 +178,11 @@ gravityfunc PROC
 	push edx
 
    	mov eax, dinov
-	mov ebx, 20 ;why
+	mov ebx, 13 ;why
 	cdq
 	idiv ebx 
 	mov ebx, dinoy
-	add eax, ebx
+	add eax, ebx  ; dinoy + dinov\13
 	mov dinoy, eax
 	
 	mov eax, dinov
@@ -217,12 +214,17 @@ floorcheck ENDP
 update PROC
     push ebx
 	push eax
+	call cactus
+	call birds
+	mov eax, dinoy
+	cmp eax, floory
+	jne sameframe
 	inc framecounter
 	test framecounter, 63 ; 15 = 1111, 16 = 10000
 	jnz sameframe
 	xor frameflag, 1
-	test framecounter, 63
-	jz setcloudflag
+	test framecounter, 255
+	jnz setcloudflag
 	sameframe:
 	call gravityfunc
 	call floorcheck
@@ -233,6 +235,7 @@ update PROC
 	invoke drd_imageDraw, offset looserimg, 100, 100
 	setcloudflag:
 	mov cloudflag, 1
+
 
 
 
@@ -252,7 +255,9 @@ draw PROC
 
 	invoke drd_imageDraw, offset bgimage, 0, 0 
 
-	invoke drd_imageDraw, offset floorimg, 0, 730
+	invoke drd_imageDraw, offset floorimg, 300, 730
+
+	;invoke drd_imageDraw, offset starbucksimg, 300, 100
 
 
 	mov eax, cactusX
@@ -282,24 +287,19 @@ draw PROC
 	;invoke drd_imageDraw, offset dinoimg, dinox, eax 
 	nojumpimg:
 
-	invoke Tiny_Random, 2
-	cmp rand, 1
-	je place1
-	cmp rand, 2
-	je place2
-	place1:
 	invoke drd_imageDraw, offset cloudimg, 800, 200
-	cmp cloudflag, 1
-	jne nochange1
-	place2:
-	invoke drd_imageDraw, offset cloudimg, 100, 200
-	cmp cloudflag, 1
-	jne nochange2
-	nochange1:
+	invoke drd_imageDraw, offset cloudimg, 700, 500
+	cmp collisionflag, 1
+	jnz nomessage
+	invoke drd_imageDraw, offset looserimg, 0, 0
+	nomessage:
 
-	nochange2:
+
 	invoke drd_processMessages
  	invoke drd_flip
+
+	
+
 	pop eax
 	pop ebx
 	ret
@@ -311,7 +311,7 @@ draw PROC
 main PROC
 	push eax
 	push ebx
-	invoke drd_init, 1000, 1000, INIT_WINDOW
+	invoke drd_init, 1500, 1500, INIT_WINDOW
 	invoke drd_imageLoadFile, offset bgfile, offset bgimage
 	invoke drd_imageLoadFile, offset frame1file, offset frame1img
 	invoke drd_imageLoadFile, offset frame2file, offset frame2img
@@ -321,17 +321,13 @@ main PROC
 	invoke drd_imageLoadFile, offset floorfile, offset floorimg
 	invoke drd_imageLoadFile, offset dinojmpfile, offset dinoimg
 	invoke drd_imageLoadFile, offset cloudfile, offset cloudimg
-
-	invoke drd_processMessages
- 	invoke drd_flip 
+	invoke drd_imageLoadFile, offset starbucksfile, offset starbucksimg
 
 	
 	main_loop:
      
 	call draw
 	call update
-	call cactus
-	call birds
 	jmp main_loop	
 
 	pop ebx
