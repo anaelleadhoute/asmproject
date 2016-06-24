@@ -35,39 +35,47 @@ includelib drd.lib
 	cloudfile BYTE "dinoproject/realcloud.bmp", 0
 	cloudimg Img<0,0,0,0>
 
-	starbucksfile BYTE "dinoproject/starbucks.bmp", 0
-	starbucksimg Img<0,0,0,0>
+	cactus2file BYTE "dinoproject/cactus2.bmp", 0
+	cactus2img Img<0,0,0,0>
+
+		firstscreenfile BYTE "dinoproject/firstscreen.bmp", 0
+		firstscreen Img<0,0,0,0>
+
 
 	lcg_x DWORD 0
 
 	space BYTE 20h
 	floory DWORD 9500
 	vdown DWORD 300
-	gravity DWORD 1
+	gravity DWORD 2
 	dinox DWORD 300
 	jumpv DWORD 400
 	;state
 	dinoy DWORD 8000
-	dinov DWORD 200
+	dinov DWORD 400
+	dinovflag DWORD 0
 
 	cactusY DWORD 650
 	cactusX0 dword 16000
 	cactusX DWORD 10000
 	limitXcactus Dword 4000
+	cactuscounter Dword 0
 
 	white DWORD 16777215
 
 	tziporY DWORD 1
 	tziporX DWORD 100
-	tziporV DWORD 1
+	tziporV DWORD 2
 	tziporX0 DWORD 50
 	limitXtzipor DWORD 16000
 
 	switch BYTE 0
-	cactusV DWORD 8
+	cactusV DWORD 10
 	framecounter DWORD 0
 	frameflag DWORD 0
 	cloudflag DWORD 0
+
+	csc DWORD 0
 
 	collisionflag DWORD 0
 
@@ -90,7 +98,36 @@ lcg_rand ENDP
 
 	 ;11111111
 	        ;1
-	;100000000		
+	;100000000
+
+
+masahknisa PROC
+    push eax
+	invoke drd_imageDraw, offset firstscreen, 0, 0 
+    invoke GetAsyncKeyState, space
+	test eax, 1
+ 	jz isnotpressed2
+	call draw
+	isnotpressed2:
+	pop eax
+	ret
+	masahknisa ENDP
+	
+cactusspeed PROC 
+	push eax
+	push ebx
+	mov eax, cactusV
+	mov ebx, 2
+	inc csc
+	test csc, 2047
+	jnz samespeed
+	add eax, ebx
+	mov cactusV, eax
+	samespeed:
+	pop ebx
+	pop eax
+	ret
+	cactusspeed ENDP	
 
  birds PROC
 	push eax
@@ -122,7 +159,7 @@ collisioncheck PROC
 	mov eax, dinoy
 	shr eax, 4
 	sub eax, cactusY
-	neg eax
+	;neg eax
 	cmp eax, frame1img.iheight
 	jge nocollision
 	neg eax
@@ -136,6 +173,8 @@ collisioncheck PROC
 	ret
 collisioncheck ENDP
 
+
+
 cactus PROC 
 	push eax
 	push ebx
@@ -143,10 +182,18 @@ cactus PROC
 	mov eax, cactusX
 	sub cactusX, ebx 
 	cmp eax, limitXcactus
-	jg nolimit
+	jge nolimit
+	cmp cactuscounter, 2 
+	jne itsok      
+	mov eax, cactuscounter        
+	xor eax, eax
+	mov cactuscounter, eax
+	itsok:
+	inc cactuscounter    
 	mov eax, cactusX0
 	mov cactusX, eax
 	nolimit:
+
 	pop eax
 	pop ebx
 	ret
@@ -159,10 +206,10 @@ jump PROC
  	jz isnotpressed
 	mov eax, dinoy 
 	cmp eax, floory
-	jnz isnotpressed
+	jne isnotpressed
 
 	mov eax, dinov ;v = gt, y = vt v = vefes + gt
-	sub eax, jumpv ;;;why
+	sub eax, jumpv 
 	mov dinov, eax
 
 	isnotpressed:
@@ -178,11 +225,11 @@ gravityfunc PROC
 	push edx
 
    	mov eax, dinov
-	mov ebx, 13 ;why
+	mov ebx, 10
 	cdq
 	idiv ebx 
 	mov ebx, dinoy
-	add eax, ebx  ; dinoy + dinov\13
+	add eax, ebx  
 	mov dinoy, eax
 	
 	mov eax, dinov
@@ -215,30 +262,23 @@ update PROC
     push ebx
 	push eax
 	call cactus
+	call cactusspeed
 	call birds
 	mov eax, dinoy
 	cmp eax, floory
 	jne sameframe
 	inc framecounter
-	test framecounter, 63 ; 15 = 1111, 16 = 10000
+	test framecounter, 63 ; 15 = 1111
 	jnz sameframe
 	xor frameflag, 1
-	test framecounter, 255
-	jnz setcloudflag
 	sameframe:
 	call gravityfunc
 	call floorcheck
 	call jump
 	call collisioncheck
-	test eax, eax ; return eax
-	jz zerocollision
+
+
 	invoke drd_imageDraw, offset looserimg, 100, 100
-	setcloudflag:
-	mov cloudflag, 1
-
-
-
-
 	zerocollision:
 	pop eax
 	pop ebx
@@ -246,25 +286,27 @@ update PROC
 
 update ENDP 
 
-	
 
+
+	
 draw PROC
 	push eax
 	push ebx
-
-
 	invoke drd_imageDraw, offset bgimage, 0, 0 
-
 	invoke drd_imageDraw, offset floorimg, 300, 730
-
-	;invoke drd_imageDraw, offset starbucksimg, 300, 100
-
 
 	mov eax, cactusX
 	shr eax, 4
+	cmp cactuscounter, 2
+	je cactus1
 	invoke drd_imageDraw, offset cactusimg, eax, cactusY 
-	invoke drd_imageSetTransparent, offset cactusimg, white
+    invoke drd_imageSetTransparent,offset cactusimg, white
+	jmp namee
+	cactus1:
+    invoke drd_imageDraw, offset cactus2img, eax, cactusY 
+	invoke drd_imageSetTransparent, offset cactus2img, white
 
+	namee:
 	mov eax, tziporX
 	shr eax, 4
 	invoke drd_imageDraw, offset tziporimg, eax, tziporY 
@@ -272,7 +314,7 @@ draw PROC
 	mov eax, dinoy
 	shr eax, 4
 	cmp frameflag, 1
-	jnz chgframe
+	je chgframe
 	invoke drd_imageDraw, offset frame2img, dinox, eax 
 	invoke drd_imageSetTransparent, offset frame2img, white
 	jmp goaway
@@ -284,11 +326,9 @@ draw PROC
 	cmp eax, floory 
 	je nojumpimg
 	mov eax, dinoy
-	;invoke drd_imageDraw, offset dinoimg, dinox, eax 
 	nojumpimg:
 
-	invoke drd_imageDraw, offset cloudimg, 800, 200
-	invoke drd_imageDraw, offset cloudimg, 700, 500
+
 	cmp collisionflag, 1
 	jnz nomessage
 	invoke drd_imageDraw, offset looserimg, 0, 0
@@ -311,7 +351,7 @@ draw PROC
 main PROC
 	push eax
 	push ebx
-	invoke drd_init, 1500, 1500, INIT_WINDOW
+	invoke drd_init, 1550, 1550, INIT_WINDOW
 	invoke drd_imageLoadFile, offset bgfile, offset bgimage
 	invoke drd_imageLoadFile, offset frame1file, offset frame1img
 	invoke drd_imageLoadFile, offset frame2file, offset frame2img
@@ -321,12 +361,11 @@ main PROC
 	invoke drd_imageLoadFile, offset floorfile, offset floorimg
 	invoke drd_imageLoadFile, offset dinojmpfile, offset dinoimg
 	invoke drd_imageLoadFile, offset cloudfile, offset cloudimg
-	invoke drd_imageLoadFile, offset starbucksfile, offset starbucksimg
+    invoke drd_imageLoadFile, offset cactus2file, offset cactus2img
+	invoke drd_imageLoadFile, offset firstscreenfile, offset firstscreen
 
-	
 	main_loop:
-     
-	call draw
+    call draw
 	call update
 	jmp main_loop	
 
